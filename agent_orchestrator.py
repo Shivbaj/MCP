@@ -111,21 +111,72 @@ class WeatherOrchestrator:
         self.graph = self._build_graph()
     
     def _classify_task(self, state: AgentState) -> AgentState:
-        """Classify the user query to determine task type."""
-        query = state["user_query"].lower()
+        """Use LLM to intelligently classify and plan the task approach."""
         
-        if any(word in query for word in ["forecast", "prediction", "future", "tomorrow", "week"]):
-            state["task_type"] = TaskType.FORECAST_ANALYSIS
-        elif any(word in query for word in ["alert", "warning", "storm", "emergency"]):
-            state["task_type"] = TaskType.ALERT_MONITORING
-        elif any(word in query for word in ["multiple", "compare", "cities", "locations"]):
-            state["task_type"] = TaskType.MULTI_LOCATION
-        elif any(word in query for word in ["weather", "temperature", "current", "now"]):
-            state["task_type"] = TaskType.WEATHER_QUERY
-        else:
-            state["task_type"] = TaskType.GENERAL_INQUIRY
+        # True agentic classification using LLM reasoning
+        classification_prompt = """
+        You are an intelligent weather assistant. Analyze this user query and determine the best approach:
         
-        state["execution_log"].append(f"Task classified as: {state['task_type'].value}")
+        Query: "{query}"
+        
+        Available capabilities:
+        - Current weather lookup for any location
+        - Weather forecasts (requires coordinates)  
+        - Weather alerts for US states
+        - Multi-location comparisons
+        - Weather analysis and recommendations
+        
+        Think step by step:
+        1. What is the user really asking for?
+        2. What information do I need to gather?
+        3. What's the best sequence of actions?
+        4. Are there any ambiguities I should clarify?
+        
+        Respond with a JSON object:
+        {{
+            "primary_intent": "current_weather|forecast|alerts|comparison|analysis",
+            "reasoning": "why you chose this classification",
+            "locations_needed": true/false,
+            "additional_context_needed": "any clarifications needed",
+            "complexity": "simple|moderate|complex"
+        }}
+        """
+        
+        try:
+            result = self.llm.invoke(classification_prompt.format(query=state["user_query"]))
+            
+            # Parse LLM response (simplified - should add proper JSON parsing with error handling)
+            if "current_weather" in result.lower():
+                state["task_type"] = TaskType.WEATHER_QUERY
+            elif "forecast" in result.lower():
+                state["task_type"] = TaskType.FORECAST_ANALYSIS
+            elif "alerts" in result.lower():
+                state["task_type"] = TaskType.ALERT_MONITORING
+            elif "comparison" in result.lower():
+                state["task_type"] = TaskType.MULTI_LOCATION
+            else:
+                state["task_type"] = TaskType.GENERAL_INQUIRY
+            
+            state["execution_log"].append(f"LLM classified task as: {state['task_type'].value}")
+            state["execution_log"].append(f"LLM reasoning: {result[:200]}...")
+            
+        except Exception as e:
+            # Fallback to simple classification if LLM fails
+            query = state["user_query"].lower()
+            if any(word in query for word in ["forecast", "prediction", "future", "tomorrow", "week"]):
+                state["task_type"] = TaskType.FORECAST_ANALYSIS
+            elif any(word in query for word in ["alert", "warning", "storm", "emergency"]):
+                state["task_type"] = TaskType.ALERT_MONITORING
+            elif any(word in query for word in ["multiple", "compare", "cities", "locations"]):
+                state["task_type"] = TaskType.MULTI_LOCATION
+            elif any(word in query for word in ["weather", "temperature", "current", "now"]):
+                state["task_type"] = TaskType.WEATHER_QUERY
+            else:
+                state["task_type"] = TaskType.GENERAL_INQUIRY
+            
+            state["execution_log"].append(f"Fallback classification: {state['task_type'].value}")
+            state["error_messages"].append(f"LLM classification failed: {str(e)}")
+        
         return state
     
     def _extract_locations(self, state: AgentState) -> AgentState:
