@@ -1,0 +1,103 @@
+services:
+  # Ollama service for local LLM
+  ollama:
+    image: ollama/ollama:latest
+    container_name: weather-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
+    restart: unless-stopped
+    pull_policy: always
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -f http://localhost:11434/api/version || echo 'Ollama starting...'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Ollama model setup service (runs once to pull models)
+  ollama-setup:
+    image: ollama/ollama:latest
+    container_name: weather-ollama-setup
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      echo 'Pulling required models...' &&
+      ollama pull llama3 &&
+      ollama pull phi3 &&
+      echo 'Models ready!'
+    restart: "no"
+
+  # Weather MCP Server
+  weather-server:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: weather-mcp
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+    environment:
+      - ENVIRONMENT=production
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=llama3
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8000
+      - LOG_LEVEL=INFO
+      - RATE_LIMIT_PER_MINUTE=100
+      - API_KEY_REQUIRED=false
+      - ENABLE_CORS=true
+      - DEBUG=false
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/quick"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+  # Demo client service (optional)
+  weather-demo:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: weather-demo
+    volumes:
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+    environment:
+      - ENVIRONMENT=development
+      - WEATHER_SERVER_URL=http://weather-server:8000
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      weather-server:
+        condition: service_healthy
+    command: ["python", "demo.py"]
+    restart: "no"
+    profiles:
+      - demo
+
+volumes:
+  ollama_data:
+    driver: local
+
+networks:
+  default:
+    name: weather-mcp-network

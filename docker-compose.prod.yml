@@ -1,0 +1,60 @@
+# Production Docker Compose Override
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
+services:
+  # Production Weather Server Configuration
+  weather-server:
+    restart: always
+    environment:
+      - ENVIRONMENT=production
+      - API_KEY_REQUIRED=true
+      - LOG_LEVEL=INFO
+      - RATE_LIMIT_PER_MINUTE=60
+      - DEBUG=false
+      - ENABLE_CORS=true
+    # Uncomment for SSL support
+    # volumes:
+    #   - ./ssl:/app/ssl:ro
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: '1.0'
+        reservations:
+          memory: 1g
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Production Ollama Configuration  
+  ollama:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 6g
+          cpus: '2.0'
+        reservations:
+          memory: 4g  
+          cpus: '1.0'
+    # For GPU support (uncomment if available)
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
+      interval: 45s
+      timeout: 15s
+      retries: 5
+      start_period: 120s
+
+  # Remove demo service in production
+  weather-demo:
+    profiles:
+      - disabled

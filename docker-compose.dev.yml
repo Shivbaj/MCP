@@ -1,0 +1,39 @@
+# Development Docker Compose Override
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+version: '3.8'
+
+services:
+  # Development Weather Server Configuration
+  weather-server:
+    environment:
+      - ENVIRONMENT=development
+      - API_KEY_REQUIRED=false
+      - LOG_LEVEL=DEBUG
+      - RATE_LIMIT_PER_MINUTE=1000
+      - DEBUG=true
+      - ENABLE_CORS=true
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000
+    volumes:
+      # Mount source code for live development
+      - .:/app
+      - /app/__pycache__  # Exclude pycache
+    command: ["python", "-m", "uvicorn", "weather:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # Development Ollama Configuration
+  ollama:
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_DEBUG=1
+    
+  # Enable demo service by default in development
+  weather-demo:
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+    profiles:
+      - demo
+    depends_on:
+      weather-server:
+        condition: service_healthy

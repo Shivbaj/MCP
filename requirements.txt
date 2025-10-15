@@ -1,0 +1,21 @@
+# Production dependencies for Agentic MCP Weather System
+fastapi>=0.119.0
+httpx>=0.28.1
+mcp[cli]>=1.17.0
+uvicorn[standard]>=0.37.0
+pydantic>=2.0.0
+typing-extensions>=4.0.0
+
+# Production security and performance
+gunicorn>=21.0.0
+python-multipart>=0.0.6
+python-jose[cryptography]>=3.3.0
+
+# Optional LLM dependencies (for advanced orchestration)
+langchain>=0.3.27
+langchain-ollama>=0.3.10
+langgraph>=0.2.0
+
+# Production monitoring and logging
+prometheus-client>=0.19.0
+structlog>=23.0.0
