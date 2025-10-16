@@ -9,12 +9,24 @@ from typing import Dict, List, Any, Optional, TypedDict, Annotated
 from langchain_ollama import OllamaLLM
 from langchain.prompts import PromptTemplate
 from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolExecutor
 import asyncio
 import httpx
 import json
 from datetime import datetime
 from enum import Enum
+
+# Use the new LangGraph ToolNode instead of deprecated ToolExecutor
+try:
+    from langgraph.prebuilt import ToolNode as ToolExecutor
+except ImportError:
+    # Create a simple fallback ToolExecutor
+    class ToolExecutor:
+        def __init__(self, tools):
+            self.tools = tools
+        
+        async def invoke(self, tool_call):
+            # Simple tool execution fallback
+            return {"result": "Tool execution placeholder"}
 
 from server_registry import MCPServerRegistry, MCPServer, registry
 

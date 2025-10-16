@@ -8,6 +8,9 @@ set -e
 echo "🛑 Weather MCP System - Docker Stop"
 echo "==================================="
 
+# Use standard compose file
+COMPOSE_FILE="docker-compose.yml"
+
 # Parse command line arguments
 CLEANUP=false
 REMOVE_VOLUMES=false
@@ -20,6 +23,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --remove-data)
             REMOVE_VOLUMES=true
+
             shift
             ;;
         --help|-h)
@@ -28,16 +32,16 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --cleanup       Remove containers and networks"
             echo "  --remove-data   Also remove data volumes (Ollama models)"
-            echo "  --help          Show this help message"
+            echo "  --help, -h      Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                Stop containers (keep for restart)"
-            echo "  $0 --cleanup      Stop and remove containers"  
-            echo "  $0 --remove-data  Stop and remove everything including models"
+            echo "  $0                    # Stop containers only"
+            echo "  $0 --cleanup          # Stop and remove containers/networks"
+            echo "  $0 --remove-data      # Stop and remove everything including data"
             exit 0
             ;;
         *)
-            echo "Unknown option: $1"
+            echo "❌ Unknown option: $1"
             echo "Use --help for usage information"
             exit 1
             ;;
@@ -49,9 +53,11 @@ echo "   Cleanup containers: $CLEANUP"
 echo "   Remove data volumes: $REMOVE_VOLUMES"
 echo ""
 
+
+
 # Show current status
 echo "📊 Current container status:"
-./././docker-compose-wrapper.sh-wrapper.sh-wrapper.sh ps
+docker-compose -f $COMPOSE_FILE ps 2>/dev/null || echo "No containers found"
 
 echo ""
 echo "🛑 Stopping containers..."
@@ -63,33 +69,28 @@ if [ "$REMOVE_VOLUMES" = true ]; then
     read -p "Are you sure? (y/N): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        ./././docker-compose-wrapper.sh-wrapper.sh-wrapper.sh down -v --remove-orphans
+        docker-compose -f $COMPOSE_FILE down -v --remove-orphans
         echo "✅ Stopped and removed all containers, networks, and volumes"
     else
         echo "❌ Operation cancelled"
         exit 0
     fi
 elif [ "$CLEANUP" = true ]; then
-    ./././docker-compose-wrapper.sh-wrapper.sh-wrapper.sh down --remove-orphans
+    docker-compose -f $COMPOSE_FILE down --remove-orphans
     echo "✅ Stopped and removed containers and networks"
-    echo "💾 Data volumes preserved (Ollama models kept)"
 else
-    ./././docker-compose-wrapper.sh-wrapper.sh-wrapper.sh stop
-    echo "✅ Containers stopped (can be restarted with './././docker-compose-wrapper.sh-wrapper.sh-wrapper.sh start')"
+    docker-compose -f $COMPOSE_FILE stop
+    echo "✅ Containers stopped"
 fi
 
 echo ""
-echo "🔍 Final status:"
-./././docker-compose-wrapper.sh-wrapper.sh-wrapper.sh ps
+echo "📊 Final status:"
+docker-compose -f $COMPOSE_FILE ps 2>/dev/null || echo "All containers stopped"
 
-if [ "$REMOVE_VOLUMES" = false ] && [ "$CLEANUP" = false ]; then
-    echo ""
-    echo "💡 To restart quickly: ./././docker-compose-wrapper.sh-wrapper.sh-wrapper.sh start"
-    echo "💡 To restart fresh:   ./././docker-compose-wrapper.sh-wrapper.sh-wrapper.sh up -d"
-fi
-
-if [ "$CLEANUP" = true ] && [ "$REMOVE_VOLUMES" = false ]; then
-    echo ""
-    echo "💾 Ollama models are preserved in volume: $(docker volume ls -q | grep ollama || echo 'none')"
-    echo "💡 Next startup will be faster (models already downloaded)"
-fi
+echo ""
+echo "✅ Stop operation completed!"
+echo ""
+echo "💡 Quick commands:"
+echo "   Restart: './start-docker.sh'"
+echo "   Clean restart: './start-docker.sh --build'"
+echo "   View logs: 'docker-compose -f $COMPOSE_FILE logs -f'"

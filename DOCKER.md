@@ -11,14 +11,15 @@ This document summarizes all Docker-related files in the Weather MCP project.
 - **Command**: `python main.py server --host 0.0.0.0 --port 8000`
 
 ### `docker-compose.yml`
-- **Purpose**: Main orchestration file for all services
+- **Purpose**: Main orchestration file for complete weather intelligence system
 - **Services**:
-  - `ollama`: Ollama LLM server (port 11434)
-  - `ollama-setup`: One-time model downloader  
-  - `weather-server`: Weather MCP API (port 8000)
-  - `weather-demo`: Demo client (profile: demo)
-- **Networks**: `weather-mcp-network`
-- **Volumes**: `ollama_data` for model persistence
+  - `weather-streamlit`: Streamlit chat interface (port 8501) - **Primary UI**
+  - `weather-server`: Weather MCP API + Agent Coordination Hub (port 8000)
+  - `ollama`: Ollama LLM server with AI models (port 11434)
+  - `ollama-setup`: Automated model downloader (llama3, phi3)
+  - `weather-demo`: Testing client (optional profile)
+- **Networks**: `weather-mcp-network` (internal service communication)
+- **Volumes**: `ollama_data` for persistent model storage
 
 ### `docker-compose.prod.yml`
 - **Purpose**: Production overrides
@@ -91,13 +92,53 @@ weather/
 
 ```
 Host System (localhost)
-├── 8000  → weather-server:8000  (Weather API)
-├── 11434 → ollama:11434         (Ollama API)
+├── 8501  → weather-streamlit:8501    (Streamlit Chat Interface)
+├── 8000  → weather-server:8000       (Weather API + Agent Hub)  
+├── 11434 → ollama:11434              (Ollama LLM Engine)
 └── Docker Network: weather-mcp-network
-    ├── weather-server (internal communication)
-    ├── ollama (internal communication)
+    ├── weather-streamlit (web interface)
+    ├── weather-server (MCP API + agents)
+    ├── ollama (LLM service)
     ├── ollama-setup (model downloader)
-    └── weather-demo (optional)
+    └── weather-demo (testing - optional)
+```
+
+## 🎯 **Current System Status**
+
+### Active Services (as of latest update)
+```bash
+$ docker ps
+CONTAINER ID   IMAGE                    PORTS                              NAMES
+75f8eb1fc7f4   weather-streamlit-ui     0.0.0.0:8501->8501/tcp            weather-streamlit
+9621ce1e1d44   weather-weather-server   0.0.0.0:8000->8000/tcp            weather-mcp  
+a71d0f714abf   ollama/ollama:latest     0.0.0.0:11434->11434/tcp          weather-ollama
+```
+
+### Service Health Status
+- ✅ **Streamlit UI**: http://localhost:8501 (Chat Interface)
+- ✅ **Weather API**: http://localhost:8000 (Agent Coordination Hub)
+- ✅ **Ollama LLM**: http://localhost:11434 (AI Models: llama3, phi3)
+- ✅ **System Health**: All services passing health checks
+
+## 🔄 **Service Dependencies**
+
+```
+┌─────────────────┐
+│ Streamlit UI    │ ──────┐
+│ (Port 8501)     │       │
+└─────────────────┘       │
+                          ▼
+                  ┌─────────────────┐
+                  │ Weather Server  │ ──────┐
+                  │ (Port 8000)     │       │
+                  │ + Agent Hub     │       │
+                  └─────────────────┘       │
+                                           ▼
+                                   ┌─────────────────┐
+                                   │ Ollama LLM      │
+                                   │ (Port 11434)    │
+                                   │ Models: llama3  │
+                                   └─────────────────┘
 ```
 
 ## 💡 Quick Reference

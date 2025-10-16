@@ -49,17 +49,19 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./.env:/app/.env:ro
+      # Mount source code for development (if ENVIRONMENT=development)
+      - ${PWD:-/dev/null}:/app/src:ro
     environment:
-      - ENVIRONMENT=production
+      - ENVIRONMENT=${ENVIRONMENT:-production}
       - OLLAMA_HOST=http://ollama:11434
       - OLLAMA_MODEL=llama3
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8000
-      - LOG_LEVEL=INFO
-      - RATE_LIMIT_PER_MINUTE=100
-      - API_KEY_REQUIRED=false
-      - ENABLE_CORS=true
-      - DEBUG=false
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-100}
+      - API_KEY_REQUIRED=${API_KEY_REQUIRED:-false}
+      - ENABLE_CORS=${ENABLE_CORS:-true}
+      - DEBUG=${DEBUG:-false}
     depends_on:
       ollama:
         condition: service_healthy
@@ -68,6 +70,50 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/quick"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+    command: >
+      sh -c "
+      if [ \"$$ENVIRONMENT\" = \"development\" ]; then
+        echo 'Starting in development mode with live reload...';
+        python -m uvicorn weather:app --host 0.0.0.0 --port 8000 --reload;
+      else
+        echo 'Starting in production mode...';
+        python main.py server --host 0.0.0.0 --port 8000;
+      fi
+      "
+
+  # Streamlit Web UI
+  streamlit-ui:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: weather-streamlit
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+      # Mount source code for development
+      - ${PWD:-/dev/null}:/app/src:ro
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - WEATHER_SERVER_URL=http://weather-server:8000
+      - OLLAMA_HOST=http://ollama:11434
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      weather-server:
+        condition: service_healthy
+    command: ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -83,9 +129,10 @@ services:
       - ./logs:/app/logs
       - ./.env:/app/.env:ro
     environment:
-      - ENVIRONMENT=development
+      - ENVIRONMENT=${ENVIRONMENT:-development}
       - WEATHER_SERVER_URL=http://weather-server:8000
       - OLLAMA_HOST=http://ollama:11434
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
     depends_on:
       weather-server:
         condition: service_healthy

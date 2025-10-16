@@ -1,53 +1,122 @@
-# Production Deployment Guide
+# 🚀 Production Deployment Guide - Weather Intelligence System
 
-## Quick Production Setup
+## **🌟 Current System Architecture**
 
-### 1. Ollama Setup
+Your system includes:
+- **🌐 Streamlit Chat Interface** (Port 8501) - Primary user interface
+- **🔧 Weather API + Agent Hub** (Port 8000) - REST API with multi-agent coordination  
+- **🤖 Ollama LLM Engine** (Port 11434) - Local AI models for intelligent responses
+- **📊 Health Monitoring** - Comprehensive system status and performance tracking
 
+---
+
+## **⚡ Quick Production Setup (Docker - Recommended)**
+
+### Prerequisites
+- Docker 20.10+ with Docker Compose
+- 8GB+ RAM (for AI models)
+- 15GB+ disk space
+- Ports: 8000, 8501, 11434
+
+### One-Command Production Deployment
 ```bash
-# Install Ollama
-brew install ollama  # macOS
-# Or download from https://ollama.ai/download
+# Clone and deploy
+git clone <your-repo-url> weather-production
+cd weather-production
 
-# Start Ollama service
-ollama serve &
+# Production deployment with security enabled
+./start-docker.sh --prod --build
 
-# Pull required model
-ollama pull llama3
-
-# Verify installation
-ollama list
+# Verify all services are running
+docker ps
+curl http://localhost:8000/health
 ```
 
-### 2. Environment Setup
+**✅ Production System Ready:**
+- 🌐 **User Interface**: https://yourdomain.com:8501 (Streamlit Chat)
+- 🔧 **API Endpoint**: https://yourdomain.com:8000 (REST API + Docs)
+- 📊 **Health Monitoring**: https://yourdomain.com:8000/health
+- 🤖 **AI Models**: Ollama with llama3 and phi3 models
 
+---
+
+## **🔧 Advanced Production Configuration**
+
+### Environment Setup
 ```bash
-# Clone the repository
-git clone <your-repo-url>
-cd weather-mcp-agent
+# Create production environment configuration
+cp .env.example .env.production
 
-# Create production environment file
-cp .env.example .env
-
-# Edit environment variables for your deployment
-nano .env
+# Edit production settings (REQUIRED)
+nano .env.production
 ```
 
-### 2. Docker Deployment (Recommended)
-
-#### Option A: Docker Compose with Ollama (Recommended)
-
+**Key Production Settings:**
 ```bash
-# Start both Ollama and Weather Server
-docker-compose up -d
+# Server Configuration
+ENVIRONMENT=production
+SERVER_HOST=0.0.0.0
+SERVER_PORT=8000
 
-# Initialize Ollama with Llama3 model
-docker-compose exec ollama ollama pull llama3
+# Security Settings (REQUIRED)
+API_KEY_REQUIRED=true
+API_KEY=your-secure-production-api-key-here
+RATE_LIMIT_PER_MINUTE=100
+ALLOWED_ORIGINS=https://yourdomain.com
 
-# Check services status
+# Performance Optimization
+OLLAMA_MODEL=llama3
+MAX_CONCURRENT_REQUESTS=50
+REQUEST_TIMEOUT=30.0
+
+# Logging & Monitoring  
+LOG_LEVEL=INFO
+LOG_FILE_PATH=/var/log/weather-intelligence/server.log
+```
+
+### SSL/HTTPS Configuration
+```bash
+# Add SSL certificates
+mkdir -p ./ssl
+# Place your cert.pem and key.pem in ./ssl/
+
+# Update environment for HTTPS
+echo "SSL_CERT_PATH=/app/ssl/cert.pem" >> .env.production
+echo "SSL_KEY_PATH=/app/ssl/key.pem" >> .env.production
+```
+
+---
+
+## **🐳 Docker Production Deployment Options**
+
+### Option 1: Complete System (Recommended)
+```bash
+# Full system with Streamlit + API + Ollama
+docker-compose --env-file .env.production up -d --build
+
+# Verify deployment
 docker-compose ps
+docker-compose logs --tail=50
+```
 
-# View logs
+### Option 2: Production with Custom Configuration  
+```bash
+# Use production overrides
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Check service health
+curl https://yourdomain.com:8000/health
+curl https://yourdomain.com:8501  # Streamlit interface
+```
+
+### Option 3: Scaling for High Traffic
+```bash
+# Scale weather server instances
+docker-compose up -d --scale weather-server=3
+
+# Load balancer configuration (add nginx/traefik)
+# See advanced deployment section below
+```
 docker-compose logs -f weather-server
 ```
 

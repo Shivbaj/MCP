@@ -125,3 +125,10 @@ grafana/
 # Deployment
 .deploy/
 k8s-secrets.yml
+
+# Additional files to ignore
+*.log
+uv.lock
+.DS_Store
+.vscode/
+.idea/

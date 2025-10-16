@@ -1,152 +1,224 @@
 #!/bin/bash
 
-# Weather MCP Docker Startup Script
-# Starts the complete Weather MCP system using Docker Compose (supports both legacy and new versions)
+# Universal Docker startup script for Weather MCP System
+# This script handles both development and production environments
 
 set -e
 
-echo "🌤️ Weather MCP System - Docker Startup"
-echo "======================================="
+# Default values
+ENVIRONMENT="production"
+COMPOSE_FILE="docker-compose.yml"
+SERVICES=""
+BUILD=false
+LOGS=false
+DOWN=false
 
-# --- Check if Docker is installed ---
-if ! command -v docker &> /dev/null; then
-    echo "❌ Docker is not installed. Please install Docker first:"
-    echo "   https://docs.docker.com/get-docker/"
-    exit 1
-fi
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# --- Check if Docker Compose is available (either old or new CLI) ---
-if command -v docker-compose &> /dev/null; then
-    COMPOSE_CMD="docker-compose"
-elif docker compose version &> /dev/null; then
-    COMPOSE_CMD="docker compose"
-else
-    echo "❌ Docker Compose is not installed. Please install it:"
-    echo "   https://docs.docker.com/compose/install/"
-    exit 1
-fi
+# Function to print colored output
+print_status() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
 
-# --- Check if Docker daemon is running ---
-if ! docker info &> /dev/null; then
-    echo "❌ Docker daemon is not running. Please start Docker."
-    exit 1
-fi
+print_warning() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
 
-# --- Parse CLI arguments ---
-DEMO_MODE=false
-BUILD_FRESH=false
-VERBOSE=false
-ENVIRONMENT="default"
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
 
+print_header() {
+    echo -e "${BLUE}================================${NC}"
+    echo -e "${BLUE}Weather MCP System Docker Manager${NC}"
+    echo -e "${BLUE}================================${NC}"
+}
+
+# Function to show usage
+show_usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  --dev                 Start in development mode"
+    echo "  --prod                Start in production mode (default)"
+    echo "  --build               Force rebuild of containers"
+    echo "  --logs                Show logs after starting"
+    echo "  --down                Stop and remove containers"
+    echo "  --demo                Include demo services"
+    echo "  --help                Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0 --dev             # Start in development mode"
+    echo "  $0 --prod --build    # Start in production with rebuild"
+    echo "  $0 --down            # Stop all services"
+    echo "  $0 --logs            # Start and show logs"
+}
+
+# Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --demo) DEMO_MODE=true ;;
-        --build) BUILD_FRESH=true ;;
-        --verbose|-v) VERBOSE=true ;;
-        --prod|--production) ENVIRONMENT="production" ;;
-        --dev|--development) ENVIRONMENT="development" ;;
-        --help|-h)
-            echo "Usage: $0 [OPTIONS]"
-            echo ""
-            echo "Options:"
-            echo "  --demo        Start with demo client"
-            echo "  --build       Force rebuild of containers"
-            echo "  --verbose     Show verbose output"
-            echo "  --prod        Use production configuration"
-            echo "  --dev         Use development configuration"
-            echo "  --help        Show this help message"
+        --dev)
+            ENVIRONMENT="development"
+            shift
+            ;;
+        --prod)
+            ENVIRONMENT="production"
+            shift
+            ;;
+        --build)
+            BUILD=true
+            shift
+            ;;
+        --logs)
+            LOGS=true
+            shift
+            ;;
+        --down)
+            DOWN=true
+            shift
+            ;;
+        --demo)
+            SERVICES="--profile demo"
+            shift
+            ;;
+        --help)
+            show_usage
             exit 0
             ;;
         *)
-            echo "Unknown option: $1"
-            echo "Use --help for usage information"
+            print_error "Unknown option: $1"
+            show_usage
             exit 1
             ;;
     esac
-    shift
 done
 
-echo "📋 Configuration:"
-echo "   Environment: $ENVIRONMENT"
-echo "   Demo mode: $DEMO_MODE"
-echo "   Fresh build: $BUILD_FRESH"
-echo "   Verbose: $VERBOSE"
-echo ""
+print_header
 
-# --- Stop any running containers ---
-echo "🛑 Stopping any existing containers..."
-$COMPOSE_CMD down --remove-orphans
-
-# --- Pull latest images ---
-if [ "$BUILD_FRESH" = false ]; then
-    echo "⬇️ Pulling latest images..."
-    $COMPOSE_CMD pull
+# Check if Docker is running
+if ! docker info > /dev/null 2>&1; then
+    print_error "Docker is not running. Please start Docker and try again."
+    exit 1
 fi
 
-# --- Build containers if requested ---
-if [ "$BUILD_FRESH" = true ]; then
-    echo "🔨 Building containers..."
-    if [ "$VERBOSE" = true ]; then
-        $COMPOSE_CMD build
+# Check if docker-compose is available
+if ! command -v docker-compose > /dev/null 2>&1; then
+    print_error "docker-compose is not installed. Please install docker-compose and try again."
+    exit 1
+fi
+
+# Create .env file if it doesn't exist
+if [ ! -f .env ]; then
+    print_warning ".env file not found. Creating from template..."
+    if [ -f .env.example ]; then
+        cp .env.example .env
+        print_status "Created .env from .env.example"
     else
-        $COMPOSE_CMD build --quiet
+        cat > .env << EOF
+# Environment Configuration
+ENVIRONMENT=${ENVIRONMENT}
+LOG_LEVEL=INFO
+DEBUG=false
+RATE_LIMIT_PER_MINUTE=100
+API_KEY_REQUIRED=false
+ENABLE_CORS=true
+
+# Ollama Configuration
+OLLAMA_HOST=http://ollama:11434
+OLLAMA_MODEL=llama3
+
+# Server Configuration
+SERVER_HOST=0.0.0.0
+SERVER_PORT=8000
+EOF
+        print_status "Created default .env file"
     fi
 fi
 
-# --- Determine compose files ---
-COMPOSE_FILES="-f docker-compose.yml"
-if [ "$ENVIRONMENT" = "production" ]; then
-    COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.prod.yml"
-    echo "   Using production configuration..."
-elif [ "$ENVIRONMENT" = "development" ]; then
-    COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.dev.yml"
-    echo "   Using development configuration..."
-fi
+# Update .env with current environment
+sed -i.bak "s/ENVIRONMENT=.*/ENVIRONMENT=${ENVIRONMENT}/" .env && rm .env.bak
+print_status "Set ENVIRONMENT=${ENVIRONMENT} in .env"
 
-# --- Determine profiles ---
-if [ "$DEMO_MODE" = true ]; then
-    echo "   Including demo client..."
-    COMPOSE_ARGS="--profile demo"
+# Set environment-specific variables
+export ENVIRONMENT=${ENVIRONMENT}
+if [ "$ENVIRONMENT" = "development" ]; then
+    export LOG_LEVEL="DEBUG"
+    export DEBUG="true"
+    export RATE_LIMIT_PER_MINUTE="1000"
 else
-    COMPOSE_ARGS=""
+    export LOG_LEVEL="INFO"
+    export DEBUG="false"
+    export RATE_LIMIT_PER_MINUTE="100"
 fi
 
-# --- Start the system ---
-echo "🚀 Starting Weather MCP System..."
-$COMPOSE_CMD $COMPOSE_FILES $COMPOSE_ARGS up -d
+# Handle down command
+if [ "$DOWN" = true ]; then
+    print_status "Stopping and removing containers..."
+    docker-compose -f ${COMPOSE_FILE} down --volumes --remove-orphans
+    print_status "All containers stopped and removed."
+    exit 0
+fi
 
-echo ""
-echo "✅ System started successfully!"
-echo ""
-echo "🌐 Services available at:"
-echo "   • Weather API: http://localhost:8000"
-echo "   • API Docs:    http://localhost:8000/docs"  
-echo "   • Ollama API:  http://localhost:11434"
-echo ""
+# Build options
+BUILD_FLAGS=""
+if [ "$BUILD" = true ]; then
+    BUILD_FLAGS="--build"
+    print_status "Force rebuilding containers..."
+fi
 
-# --- Quick health checks ---
-sleep 3
-echo "🔍 Quick health check:"
+print_status "Starting Weather MCP System in ${ENVIRONMENT} mode..."
 
-if curl -s http://localhost:8000/health/quick > /dev/null 2>&1; then
-    echo "   ✅ Weather service: Ready"
+# Start services
+docker-compose -f ${COMPOSE_FILE} up -d ${BUILD_FLAGS} ${SERVICES}
+
+# Wait for services to be healthy
+print_status "Waiting for services to be ready..."
+sleep 10
+
+# Check service health
+print_status "Checking service health..."
+
+# Check Ollama
+if curl -s http://localhost:11434/api/version > /dev/null; then
+    print_status "✅ Ollama is running (http://localhost:11434)"
 else
-    echo "   ⏳ Weather service: Starting... (may take a moment)"
+    print_warning "⚠️ Ollama may still be starting up..."
 fi
 
-if curl -s http://localhost:11434/api/version > /dev/null 2>&1; then
-    echo "   ✅ Ollama service: Ready"
+# Check Weather Server
+if curl -s http://localhost:8000/health/quick > /dev/null; then
+    print_status "✅ Weather Server is running (http://localhost:8000)"
 else
-    echo "   ⏳ Ollama service: Starting... (may take a moment)"
+    print_warning "⚠️ Weather Server may still be starting up..."
 fi
 
+# Check Streamlit UI
+if curl -s http://localhost:8501 > /dev/null; then
+    print_status "✅ Streamlit UI is running (http://localhost:8501)"
+else
+    print_warning "⚠️ Streamlit UI may still be starting up..."
+fi
+
+print_status "System startup complete!"
 echo ""
-echo "📚 Useful commands:"
-echo "   View logs:        $COMPOSE_CMD logs -f"
-echo "   Stop system:      $COMPOSE_CMD down"
-echo "   Restart:          $COMPOSE_CMD restart"
-echo "   System status:    $COMPOSE_CMD ps"
+echo -e "${BLUE}Available Services:${NC}"
+echo "  🌐 Weather API: http://localhost:8000"
+echo "  📊 Streamlit UI: http://localhost:8501"
+echo "  🤖 Ollama LLM: http://localhost:11434"
 echo ""
-echo "🎯 Test the API:"
-echo "   curl http://localhost:8000/health"
-echo "   curl -X POST http://localhost:8000/tools/get_weather -H 'Content-Type: application/json' -d '{\"city\": \"San Francisco\"}'"
+echo -e "${BLUE}Quick Test Commands:${NC}"
+echo "  curl http://localhost:8000/health"
+echo "  curl -X POST http://localhost:8000/query -H 'Content-Type: application/json' -d '{\"query\":\"Weather in Tokyo\"}'"
+echo ""
+
+if [ "$LOGS" = true ]; then
+    print_status "Showing logs (press Ctrl+C to exit)..."
+    docker-compose -f ${COMPOSE_FILE} logs -f
+fi
+
+print_status "Use '$0 --down' to stop all services"

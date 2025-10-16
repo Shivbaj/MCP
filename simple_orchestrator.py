@@ -91,7 +91,22 @@ class SimpleOrchestrator:
                     json={"city": city},
                     timeout=10.0
                 )
-                return response.json()
+                
+                # Check if request was successful
+                if response.status_code != 200:
+                    return {"error": f"Weather server returned status {response.status_code}: {response.text}"}
+                
+                # Check if response has content
+                if not response.text.strip():
+                    return {"error": "Weather server returned empty response"}
+                
+                # Try to parse JSON
+                try:
+                    result = response.json()
+                    return result
+                except Exception as json_error:
+                    return {"error": f"Failed to parse weather response as JSON: {str(json_error)}. Response: {response.text[:200]}"}
+                    
         except Exception as e:
             return {"error": f"Failed to call weather tool: {str(e)}"}
     
@@ -108,7 +123,21 @@ class SimpleOrchestrator:
                     json={"latitude": latitude, "longitude": longitude},
                     timeout=15.0
                 )
-                return response.json()
+                
+                # Check if request was successful
+                if response.status_code != 200:
+                    return {"error": f"Forecast server returned status {response.status_code}: {response.text}"}
+                
+                # Check if response has content
+                if not response.text.strip():
+                    return {"error": "Forecast server returned empty response"}
+                
+                # Try to parse JSON
+                try:
+                    return response.json()
+                except Exception as json_error:
+                    return {"error": f"Failed to parse forecast response as JSON: {str(json_error)}. Response: {response.text[:200]}"}
+                    
         except Exception as e:
             return {"error": f"Failed to call forecast tool: {str(e)}"}
     
@@ -125,7 +154,21 @@ class SimpleOrchestrator:
                     json={"state": state_code},
                     timeout=10.0
                 )
-                return response.json()
+                
+                # Check if request was successful
+                if response.status_code != 200:
+                    return {"error": f"Alerts server returned status {response.status_code}: {response.text}"}
+                
+                # Check if response has content
+                if not response.text.strip():
+                    return {"error": "Alerts server returned empty response"}
+                
+                # Try to parse JSON
+                try:
+                    return response.json()
+                except Exception as json_error:
+                    return {"error": f"Failed to parse alerts response as JSON: {str(json_error)}. Response: {response.text[:200]}"}
+                    
         except Exception as e:
             return {"error": f"Failed to call alerts tool: {str(e)}"}
     

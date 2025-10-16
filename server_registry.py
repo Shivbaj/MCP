@@ -11,6 +11,7 @@ from datetime import datetime
 import httpx
 import asyncio
 import json
+import os
 from enum import Enum
 
 
@@ -65,10 +66,28 @@ class MCPServerRegistry:
     
     def _initialize_default_servers(self):
         """Initialize with default known servers."""
+        # Get weather server URL from environment variable
+        weather_server_url = os.environ.get("WEATHER_SERVER_URL", "http://localhost:8000")
+        
+        # Parse the URL to extract host and port
+        if weather_server_url.startswith("http://"):
+            url_without_protocol = weather_server_url[7:]  # Remove "http://"
+        elif weather_server_url.startswith("https://"):
+            url_without_protocol = weather_server_url[8:]  # Remove "https://"
+        else:
+            url_without_protocol = weather_server_url
+        
+        if ":" in url_without_protocol:
+            host, port_str = url_without_protocol.split(":", 1)
+            port = int(port_str)
+        else:
+            host = url_without_protocol
+            port = 8000  # Default port
+        
         weather_server = MCPServer(
             name="weather-server",
-            host="localhost", 
-            port=8000,
+            host=host, 
+            port=port,
             description="Weather information service using NWS API and wttr.in",
             tools=["get_weather", "get_forecast", "get_alerts"],
             tags=["weather", "forecast", "alerts", "location"]

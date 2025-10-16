@@ -1,23 +1,55 @@
-# Contributing to Agentic MCP Weather System
+# 🤝 Contributing to Weather Intelligence System
 
-Thank you for your interest in contributing! 🎉
+Thank you for your interest in contributing to our multi-agent weather intelligence system! 🎉
 
-## Development Setup
+## **🌟 Current System Overview**
 
-1. **Fork the repository** on GitHub
-2. **Clone your fork**:
-   ```bash
-   git clone https://github.com/YOUR-USERNAME/weather-mcp-agent.git
-   cd weather-mcp-agent
-   ```
-3. **Set up development environment**:
-   ```bash
-   uv sync
-   ```
-4. **Create a branch** for your feature:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
+This project includes:
+- **🌐 Streamlit Chat Interface** - ChatGPT-like weather assistant  
+- **🤖 Multi-Agent Coordination** - Specialized weather, travel, and alert agents
+- **🔧 MCP Server** - Production-ready API with health monitoring
+- **🐳 Docker Infrastructure** - Complete containerized deployment
+- **📊 Real-time Monitoring** - System health and performance tracking
+
+## **🚀 Development Setup**
+
+### Quick Start (Docker)
+```bash  
+# Fork and clone the repository
+git clone https://github.com/YOUR-USERNAME/weather.git
+cd weather
+
+# Start development environment
+./start-docker.sh --dev
+
+# System ready for development:
+# 🌐 Streamlit: http://localhost:8501 (with live reload)
+# 🔧 API: http://localhost:8000 (with debug mode)
+# 🤖 Ollama: http://localhost:11434
+```
+
+### Local Python Development
+```bash
+# Clone and setup
+git clone https://github.com/YOUR-USERNAME/weather.git
+cd weather
+
+# Setup with uv (recommended)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync
+
+# Alternative: pip setup
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# Install and start Ollama
+brew install ollama  # macOS
+ollama serve &
+ollama pull llama3
+
+# Create feature branch
+git checkout -b feature/your-amazing-feature
+```
 
 ## Making Changes
 
